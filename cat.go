@@ -30,7 +30,7 @@ func getImageUrl(cache Cache) (string, error) {
 		return "", err
 	}
 
-	defer response.Body.Close()
+    defer response.Body.Close()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		fmt.Printf("error getting image body %s", err)
