@@ -1,5 +1,7 @@
 package main
-
+// TODO fix concurrency
+// TODO build email
+// TODO send email
 import (
 	"bytes"
 	"encoding/json"
@@ -12,10 +14,12 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/h2non/bimg"
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 100
+const N = 300
 
 type Cache struct {
 	v  map[string]bool
@@ -26,17 +30,62 @@ func main() {
 	urlChan := getImageUrls()
 	fmt.Println("hallo")
 	pathChan := resolveImageToDisk(urlChan)
-
+	errChan := resolveWartermark(pathChan)
 	i := 0
-	for v := range pathChan {
+	for v := range errChan {
 		i++
-        _ = v
+		_ = v
 	}
 	fmt.Println("successfuly wrote", i, "images")
+}
+func resolveWartermark(c <-chan string) <-chan error {
+	wg := sync.WaitGroup{}
+	out := make(chan error)
+	action := func(url string) {
+		defer wg.Done()
+		err := putWatermark(url)
+		out <- err
+	}
+	for url := range c {
+		wg.Add(1)
+		fmt.Println("writing watermark")
+		go action(url)
+	}
+	go func() {
+		wg.Wait()
+		defer close(out)
+	}()
+	return out
+}
+func putWatermark(filePath string) error {
+	watermarkBuff, err := bimg.Read("clickme.jpg")
+	if watermarkBuff != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+	buffer, err := bimg.Read(filePath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	watermark := bimg.WatermarkImage{
+		Left:    0,
+		Top:     0,
+		Opacity: 100,
+		Buf:     watermarkBuff,
+	}
+
+	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	bimg.Write(filePath, newImage)
+	return nil
 }
 func resolveImageToDisk(c <-chan string) <-chan string {
 	wg := sync.WaitGroup{}
 	out := make(chan string)
+	fmt.Println("writing to disk")
 	action := func(url string) {
 		defer wg.Done()
 		path, _ := downloadImgAndWriteToDisk(url)
@@ -55,6 +104,7 @@ func resolveImageToDisk(c <-chan string) <-chan string {
 	return out
 }
 func getImageUrls() <-chan string {
+	fmt.Println("getting url")
 	// TODO use in disk cache
 	var cache Cache = Cache{v: make(map[string]bool)}
 	out := make(chan string)
