@@ -1,4 +1,5 @@
 package main
+
 // TODO fix concurrency
 // TODO build email
 // TODO send email
@@ -19,7 +20,7 @@ import (
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 300
+const N = 10
 
 type Cache struct {
 	v  map[string]bool
@@ -27,106 +28,112 @@ type Cache struct {
 }
 
 func main() {
-	urlChan := getImageUrls()
-	fmt.Println("hallo")
-	pathChan := resolveImageToDisk(urlChan)
-	errChan := resolveWartermark(pathChan)
-	i := 0
-	for v := range errChan {
-		i++
-		_ = v
-	}
-	fmt.Println("successfuly wrote", i, "images")
+	urlChan := getImagesUrls()
+	pathChan := resolveImagesToDisk(urlChan)
+	errChan := resolveWartermarks(pathChan)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		i := 0
+		for v := range errChan {
+			i++
+			_ = v
+		}
+		fmt.Println("successfuly wrote", i, "images")
+	}()
+	wg.Wait()
 }
-func resolveWartermark(c <-chan string) <-chan error {
+
+// orchestrators
+
+func resolveWartermarks(c <-chan string) <-chan error {
 	wg := sync.WaitGroup{}
+	wga := sync.WaitGroup{}
 	out := make(chan error)
 	action := func(url string) {
 		defer wg.Done()
+		fmt.Println("writing watermark")
 		err := putWatermark(url)
 		out <- err
 	}
-	for url := range c {
-		wg.Add(1)
-		fmt.Println("writing watermark")
-		go action(url)
-	}
+	wga.Add(1)
 	go func() {
+		for url := range c {
+			wg.Add(1)
+			go action(url)
+		}
+		wga.Done()
+	}()
+	go func() {
+		wga.Wait()
 		wg.Wait()
 		defer close(out)
 	}()
 	return out
 }
-func putWatermark(filePath string) error {
-	watermarkBuff, err := bimg.Read("clickme.jpg")
-	if watermarkBuff != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
-	buffer, err := bimg.Read(filePath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
 
-	watermark := bimg.WatermarkImage{
-		Left:    0,
-		Top:     0,
-		Opacity: 100,
-		Buf:     watermarkBuff,
-	}
-
-	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
-
-	bimg.Write(filePath, newImage)
-	return nil
-}
-func resolveImageToDisk(c <-chan string) <-chan string {
+func resolveImagesToDisk(c <-chan string) <-chan string {
 	wg := sync.WaitGroup{}
+	wga := sync.WaitGroup{}
 	out := make(chan string)
-	fmt.Println("writing to disk")
 	action := func(url string) {
 		defer wg.Done()
+		fmt.Println("writing to disk")
 		path, _ := downloadImgAndWriteToDisk(url)
 		if len(path) > 1 {
 			out <- path
 		}
 	}
-	for url := range c {
-		wg.Add(1)
-		go action(url)
-	}
+	wga.Add(1)
 	go func() {
+		for url := range c {
+			wg.Add(1)
+			go action(url)
+		}
+		wga.Done()
+	}()
+	go func() {
+		wga.Wait()
 		wg.Wait()
 		defer close(out)
 	}()
 	return out
 }
-func getImageUrls() <-chan string {
-	fmt.Println("getting url")
+
+func getImagesUrls() <-chan string {
 	// TODO use in disk cache
 	var cache Cache = Cache{v: make(map[string]bool)}
 	out := make(chan string)
 	wg := sync.WaitGroup{}
+	wga := sync.WaitGroup{}
 	action := func() {
 		defer wg.Done()
+		fmt.Println("getting url")
 		url, _ := getImageUrl(&cache)
 		if len(url) > 1 {
 			out <- url
 		}
 	}
-	for i := 0; i < N; i++ {
-		wg.Add(1)
-		go action()
-	}
+	wga.Add(1)
 	go func() {
+		for i := 0; i < N; i++ {
+			wg.Add(1)
+			go action()
+		}
+		wga.Done()
+	}()
+	go func() {
+		wga.Wait()
 		wg.Wait()
 		close(out)
 	}()
 	return out
 
 }
+
+// actions
 
 func getImageUrl(cache *Cache) (string, error) {
 	response, err := http.Get(CAT_API)
@@ -200,4 +207,30 @@ func downloadImgAndWriteToDisk(imgUrl string) (string, error) {
 		return "", err
 	}
 	return pathName, nil
+}
+
+func putWatermark(filePath string) error {
+	watermarkBuff, err := bimg.Read("clickme.jpg")
+	if watermarkBuff != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+	buffer, err := bimg.Read(filePath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	watermark := bimg.WatermarkImage{
+		Left:    0,
+		Top:     0,
+		Opacity: 100,
+		Buf:     watermarkBuff,
+	}
+
+	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	bimg.Write(filePath, newImage)
+	return nil
 }
