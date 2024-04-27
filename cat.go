@@ -28,9 +28,9 @@ type Cache struct {
 }
 
 func main() {
-	urlChan := getImagesUrls()
-	pathChan := resolveImagesToDisk(urlChan)
-	errChan := resolveWartermarks(pathChan)
+	urlChan := execGetImagesUrls()
+	pathChan := execWriteImagesToDisk(urlChan)
+	errChan := execWriteWatermarks(pathChan)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -48,7 +48,7 @@ func main() {
 
 // orchestrators
 
-func resolveWartermarks(c <-chan string) <-chan error {
+func execWriteWatermarks(c <-chan string) <-chan error {
 	wg := sync.WaitGroup{}
 	wga := sync.WaitGroup{}
 	out := make(chan error)
@@ -74,7 +74,7 @@ func resolveWartermarks(c <-chan string) <-chan error {
 	return out
 }
 
-func resolveImagesToDisk(c <-chan string) <-chan string {
+func execWriteImagesToDisk(c <-chan string) <-chan string {
 	wg := sync.WaitGroup{}
 	wga := sync.WaitGroup{}
 	out := make(chan string)
@@ -102,7 +102,7 @@ func resolveImagesToDisk(c <-chan string) <-chan string {
 	return out
 }
 
-func getImagesUrls() <-chan string {
+func execGetImagesUrls() <-chan string {
 	// TODO use in disk cache
 	var cache Cache = Cache{v: make(map[string]bool)}
 	out := make(chan string)
@@ -120,6 +120,7 @@ func getImagesUrls() <-chan string {
 	go func() {
 		for i := 0; i < N; i++ {
 			wg.Add(1)
+           // <-time.After(time.Millisecond * 1000)
 			go action()
 		}
 		wga.Done()
