@@ -1,6 +1,5 @@
 package main
 
-// TODO fix concurrency
 // TODO build email
 // TODO send email
 import (
@@ -28,115 +27,43 @@ type Cache struct {
 	mu sync.Mutex
 }
 
-func zap() int {
-	return 1
-}
 func main() {
-	urlChan := execGetImagesUrls()
-	pathChan := execWriteImagesToDisk(urlChan)
-	errChan := execWriteWatermarks(pathChan)
-	utils.ChainOrchestrator(zap)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		i := 0
-		for v := range errChan {
-			i++
-			_ = v
-		}
-		fmt.Println("successfuly wrote", i, "images")
-	}()
-	wg.Wait()
-}
-
-// orchestrators
-
-func execWriteWatermarks(c <-chan string) <-chan error {
-	wg := sync.WaitGroup{}
-	wga := sync.WaitGroup{}
-	out := make(chan error)
-	action := func(url string) {
-		defer wg.Done()
-		fmt.Println("writing watermark")
-		err := putWatermark(url)
-		out <- err
+	// startup
+	initChan := make(chan int, N)
+	for i := 0; i < N; i++ {
+		initChan <- i
 	}
-	wga.Add(1)
-	go func() {
-		for url := range c {
-			wg.Add(1)
-			go action(url)
-		}
-		wga.Done()
-	}()
-	go func() {
-		wga.Wait()
-		wg.Wait()
-		defer close(out)
-	}()
-	return out
-}
+	close(initChan)
 
-func execWriteImagesToDisk(c <-chan string) <-chan string {
-	wg := sync.WaitGroup{}
-	wga := sync.WaitGroup{}
-	out := make(chan string)
-	action := func(url string) {
-		defer wg.Done()
-		fmt.Println("writing to disk")
-		path, _ := downloadImgAndWriteToDisk(url)
-		if len(path) > 1 {
-			out <- path
-		}
-	}
-	wga.Add(1)
-	go func() {
-		for url := range c {
-			wg.Add(1)
-			go action(url)
-		}
-		wga.Done()
-	}()
-	go func() {
-		wga.Wait()
-		wg.Wait()
-		defer close(out)
-	}()
-	return out
-}
-
-func execGetImagesUrls() <-chan string {
-	// TODO use in disk cache
 	var cache Cache = Cache{v: make(map[string]bool)}
-	out := make(chan string)
-	wg := sync.WaitGroup{}
-	wga := sync.WaitGroup{}
-	action := func() {
-		defer wg.Done()
+
+	urlChanAction := func(i int) string {
 		fmt.Println("getting url")
 		url, _ := getImageUrl(&cache)
-		if len(url) > 1 {
-			out <- url
-		}
+		return url
 	}
-	wga.Add(1)
-	go func() {
-		for i := 0; i < N; i++ {
-			wg.Add(1)
-			// <-time.After(time.Millisecond * 1000)
-			go action()
-		}
-		wga.Done()
-	}()
-	go func() {
-		wga.Wait()
-		wg.Wait()
-		close(out)
-	}()
-	return out
+	urlChan := utils.ChainOrchestrator(initChan, urlChanAction)
+	//
+	pathChanAction := func(url string) string {
+		fmt.Println("writing to disk")
+		path, _ := downloadImgAndWriteToDisk(url)
+		return path
+	}
+	pathChan := utils.ChainOrchestrator(urlChan, pathChanAction)
+	//
+	errChanAction := func(url string) error {
+		fmt.Println("writing watermark")
+		err := putWatermark(url)
+		return err
+	}
+	errChan := utils.ChainOrchestrator(pathChan, errChanAction)
 
+	i := 0
+	for v := range errChan {
+		i++
+		_ = v
+	}
+	fmt.Println("successfuly wrote", i, "images")
 }
 
 // actions
