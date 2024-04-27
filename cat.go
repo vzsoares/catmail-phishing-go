@@ -60,10 +60,13 @@ func main() {
 
 	i := 0
 	for v := range errChan {
-		i++
-		_ = v
+		if v == nil {
+			i++
+		} else {
+			fmt.Printf("failed with error: %s \n", v)
+		}
 	}
-	fmt.Println("successfuly wrote", i, "images")
+	fmt.Println("tried to write", N, "images", "and successfuly wrote", i, "images")
 }
 
 // actions
@@ -102,6 +105,9 @@ func getImageUrl(cache *Cache) (string, error) {
 }
 
 func downloadImgAndWriteToDisk(imgUrl string) (string, error) {
+	if len(imgUrl) <= 1 {
+		return "", errors.New("no img")
+	}
 	const basePath = "image/"
 	name := strings.Split(imgUrl, "/")
 	pathName := basePath + name[len(name)-1]
@@ -143,13 +149,16 @@ func downloadImgAndWriteToDisk(imgUrl string) (string, error) {
 }
 
 func putWatermark(filePath string) error {
+	if len(filePath) <= 1 {
+		return errors.New("no path")
+	}
 	watermarkBuff, err := bimg.Read("clickme.jpg")
-	if watermarkBuff != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if err != nil {
+		return err
 	}
 	buffer, err := bimg.Read(filePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		return err
 	}
 
 	watermark := bimg.WatermarkImage{
@@ -161,7 +170,7 @@ func putWatermark(filePath string) error {
 
 	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		return err
 	}
 
 	bimg.Write(filePath, newImage)
