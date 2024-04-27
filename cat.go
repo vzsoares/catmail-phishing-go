@@ -11,6 +11,7 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"main/utils"
 	"net/http"
 	"os"
 	"strings"
@@ -27,10 +28,14 @@ type Cache struct {
 	mu sync.Mutex
 }
 
+func zap() int {
+	return 1
+}
 func main() {
 	urlChan := execGetImagesUrls()
 	pathChan := execWriteImagesToDisk(urlChan)
 	errChan := execWriteWatermarks(pathChan)
+	utils.ChainOrchestrator(zap)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -120,7 +125,7 @@ func execGetImagesUrls() <-chan string {
 	go func() {
 		for i := 0; i < N; i++ {
 			wg.Add(1)
-           // <-time.After(time.Millisecond * 1000)
+			// <-time.After(time.Millisecond * 1000)
 			go action()
 		}
 		wga.Done()
