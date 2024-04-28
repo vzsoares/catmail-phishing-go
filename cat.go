@@ -4,6 +4,7 @@ package main
 // TODO send email
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,31 +37,32 @@ func main() {
 	close(initChan)
 
 	var cache Cache = Cache{v: make(map[string]bool)}
+	errChan := make(chan error)
 
-	urlChanAction := func(i int) string {
+	urlChanAction := func(i int) (string, error) {
 		fmt.Println("getting url")
-		url, _ := getImageUrl(&cache)
-		return url
+		url, err := getImageUrl(&cache)
+		return url, err
 	}
-	urlChan := utils.ChainOrchestrator(initChan, urlChanAction)
+	urlChan := utils.ChainOrchestrator(initChan, urlChanAction, errChan)
 	//
-	pathChanAction := func(url string) string {
+	pathChanAction := func(url string) (string, error) {
 		fmt.Println("writing to disk")
-		path, _ := downloadImgAndWriteToDisk(url)
-		return path
+		path, err := downloadImgAndWriteToDisk(url)
+		return path, err
 	}
-	pathChan := utils.ChainOrchestrator(urlChan, pathChanAction)
+	pathChan := utils.ChainOrchestrator(urlChan, pathChanAction, errChan)
 	//
-	errChanAction := func(url string) error {
+	wPathChanAction := func(url string) (string, error) {
 		fmt.Println("writing watermark")
-		err := putWatermark(url)
-		return err
+		path, err := putWatermark(url)
+		return path, err
 	}
-	errChan := utils.ChainOrchestrator(pathChan, errChanAction)
+	wPathChan := utils.ChainOrchestrator(pathChan, wPathChanAction, errChan)
 
 	i := 0
-	for v := range errChan {
-		if v == nil {
+	for v := range wPathChan {
+		if len(v) > 1 {
 			i++
 		} else {
 			fmt.Printf("failed with error: %s \n", v)
@@ -133,7 +135,6 @@ func downloadImgAndWriteToDisk(imgUrl string) (string, error) {
 		fmt.Printf("error decoding image  %s\n", err)
 		return "", err
 	}
-	//fmt.Println(pathName)
 	outputFile, err := os.Create(pathName)
 	if err != nil {
 		fmt.Printf("error os.Create  %s\n", err)
@@ -148,17 +149,17 @@ func downloadImgAndWriteToDisk(imgUrl string) (string, error) {
 	return pathName, nil
 }
 
-func putWatermark(filePath string) error {
+func putWatermark(filePath string) (string, error) {
 	if len(filePath) <= 1 {
-		return errors.New("no path")
+		return "", errors.New("no path")
 	}
 	watermarkBuff, err := bimg.Read("clickme.jpg")
 	if err != nil {
-		return err
+		return "", err
 	}
 	buffer, err := bimg.Read(filePath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	watermark := bimg.WatermarkImage{
@@ -170,9 +171,46 @@ func putWatermark(filePath string) error {
 
 	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	bimg.Write(filePath, newImage)
-	return nil
+	return filePath, nil
+}
+
+func parseToBase64(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	output := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
+	base64.StdEncoding.Encode(output, data)
+	return output, nil
+}
+
+func createEmail(base64buff []byte, href string, templatePath string, id string) (bool, error) {
+	templateBuff, err := os.ReadFile(templatePath)
+	if err != nil {
+		return false, err
+	}
+
+	templateString := string(templateBuff)
+	base64String := string(base64buff[:])
+	strings.ReplaceAll(templateString, "href", href)
+	strings.ReplaceAll(templateString, "base64", base64String)
+
+	outputFile, err := os.Create("html/" + id)
+	if err != nil {
+		return false, err
+	}
+	defer outputFile.Close()
+
+	htmlBuff := []byte(templateString)
+
+	_, err = outputFile.Write(htmlBuff)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

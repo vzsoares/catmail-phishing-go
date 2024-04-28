@@ -2,15 +2,19 @@ package utils
 
 import "sync"
 
-func ChainOrchestrator[R, T any](ch <-chan T, fn func(T) R) chan R {
+func ChainOrchestrator[R, T any](ch <-chan T, fn func(T) (R, error), errChan chan error) chan R {
 
 	wg := sync.WaitGroup{}
 	out := make(chan R)
 
 	action := func(v T) {
 		defer wg.Done()
-		vl := fn(v)
-		out <- vl
+		vl, err := fn(v)
+		if err != nil {
+			errChan <- err
+		} else {
+			out <- vl
+		}
 	}
 
 	wg.Add(1)
