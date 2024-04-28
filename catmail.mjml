@@ -1,0 +1,42 @@
+<mjml>
+  <mj-head>
+    <mj-font
+      name="Figtree"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500&display=swap"
+    />
+    <mj-attributes>
+      <mj-class name="gray_text" color="#2C2C2C" />
+      <mj-class name="primary_text" color="#38AB9E" />
+      <mj-class name="white_text" color="#FDFDFD" />
+      <mj-class name="bold_text" font-weight="bold" />
+      <mj-all
+        font-family="'Figtree', sans-serif"
+        font-size="16px"
+        color="#2C2C2C"
+      />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#FFFFFF">
+    <mj-section background-color="#89cff0" padding="40px 0px 24px 0px">
+    </mj-section>
+    <mj-section background-color="#89cff0" padding="0px 0px 34px 0px">
+      <mj-column>
+        <mj-text font-size="36px" mj-class="bold_text white_text" align="center"
+          >Parabéns, você foi sorteado!!</mj-text
+        >
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#D3D3D3" padding="50px 0px 50px 0px">
+      <mj-column>
+        <mj-image
+          width="500px"
+          href="{href}"
+          height="300px"
+          align="center"
+          src="{base64}"
+          alt="logo"
+        ></mj-image>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
