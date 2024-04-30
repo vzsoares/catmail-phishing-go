@@ -79,7 +79,7 @@ func main() {
 				return
 			}
 		case err := <-errChan:
-			fmt.Printf("error: s%\n", err)
+			fmt.Printf("error: %s\n", err)
 		}
 	}
 }
