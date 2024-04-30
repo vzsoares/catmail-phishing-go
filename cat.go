@@ -19,7 +19,7 @@ import (
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 10
+const N = 1000
 
 type Cache struct {
 	v  map[string]bool
@@ -69,15 +69,19 @@ func main() {
 	}
 	emailPathChan := utils.ChainOrchestrator(wPathChan, emailPathAction, errChan)
 
-	i := 0
-	for v := range emailPathChan {
-		if len(v) > 1 {
+	i := -1
+	for {
+		select {
+		case _, ok := <-emailPathChan:
 			i++
-		} else {
-			fmt.Printf("failed with error: %s \n", v)
+			if !ok {
+				fmt.Println("tried to write", N, "images", "and successfuly wrote", i, "images")
+				return
+			}
+		case err := <-errChan:
+			fmt.Printf("error: s%\n", err)
 		}
 	}
-	fmt.Println("tried to write", N, "images", "and successfuly wrote", i, "images")
 }
 
 // actions
