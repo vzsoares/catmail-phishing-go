@@ -21,7 +21,7 @@ import (
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 10
+const N = 1
 
 type Cache struct {
 	v  map[string]bool
@@ -38,6 +38,7 @@ func main() {
 
 	var cache Cache = Cache{v: make(map[string]bool)}
 	errChan := make(chan error)
+	defer close(errChan)
 
 	urlChanAction := func(i int) (string, error) {
 		fmt.Println("getting url")
@@ -59,9 +60,26 @@ func main() {
 		return path, err
 	}
 	wPathChan := utils.ChainOrchestrator(pathChan, wPathChanAction, errChan)
+	//
+	base64ChanAction := func(path string) ([]byte, error) {
+		fmt.Println("writing creating base64")
+		base64buff, err := parseToBase64(path)
+		return base64buff, err
 
+	}
+	base64Chan := utils.ChainOrchestrator(wPathChan, base64ChanAction, errChan)
+	//
+	emailPathAction := func(b []byte) (string, error) {
+		fmt.Println("creating html")
+		href := "https://www.google.com/search?q=what+is+phishing"
+		templatePath := "catmail.html"
+		path, err := createEmail(b, href, templatePath, "1234")
+		return path, err
+
+	}
+	emailPathChan := utils.ChainOrchestrator(base64Chan, emailPathAction, errChan)
 	i := 0
-	for v := range wPathChan {
+	for v := range emailPathChan {
 		if len(v) > 1 {
 			i++
 		} else {
@@ -188,20 +206,23 @@ func parseToBase64(path string) ([]byte, error) {
 	return output, nil
 }
 
-func createEmail(base64buff []byte, href string, templatePath string, id string) (bool, error) {
+func createEmail(base64buff []byte, href string, templatePath string, id string) (string, error) {
 	templateBuff, err := os.ReadFile(templatePath)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	templateString := string(templateBuff)
+	var templateString string = string(templateBuff[:])
 	base64String := string(base64buff[:])
-	strings.ReplaceAll(templateString, "href", href)
-	strings.ReplaceAll(templateString, "base64", base64String)
+	dataUriPrefix := "data:image/jpeg;base64,"
 
-	outputFile, err := os.Create("html/" + id)
+	templateString = strings.Replace(templateString, "{href}", href, -1)
+	templateString = strings.Replace(templateString, "{base64}", dataUriPrefix+base64String, -1)
+
+	outputPath := "html/" + id + ".html"
+	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	defer outputFile.Close()
 
@@ -209,8 +230,8 @@ func createEmail(base64buff []byte, href string, templatePath string, id string)
 
 	_, err = outputFile.Write(htmlBuff)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return true, nil
+	return outputPath, nil
 }
