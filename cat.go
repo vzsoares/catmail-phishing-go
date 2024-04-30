@@ -1,7 +1,5 @@
 package main
 
-// TODO build email
-// TODO send email
 import (
 	"bytes"
 	"encoding/base64"
@@ -21,7 +19,7 @@ import (
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 1
+const N = 10
 
 type Cache struct {
 	v  map[string]bool
@@ -61,23 +59,16 @@ func main() {
 	}
 	wPathChan := utils.ChainOrchestrator(pathChan, wPathChanAction, errChan)
 	//
-	base64ChanAction := func(path string) ([]byte, error) {
-		fmt.Println("writing creating base64")
-		base64buff, err := parseToBase64(path)
-		return base64buff, err
-
-	}
-	base64Chan := utils.ChainOrchestrator(wPathChan, base64ChanAction, errChan)
-	//
-	emailPathAction := func(b []byte) (string, error) {
+	emailPathAction := func(path string) (string, error) {
 		fmt.Println("creating html")
 		href := "https://www.google.com/search?q=what+is+phishing"
 		templatePath := "catmail.html"
-		path, err := createEmail(b, href, templatePath, "1234")
-		return path, err
+		epath, err := createEmail(path, href, templatePath)
+		return epath, err
 
 	}
-	emailPathChan := utils.ChainOrchestrator(base64Chan, emailPathAction, errChan)
+	emailPathChan := utils.ChainOrchestrator(wPathChan, emailPathAction, errChan)
+
 	i := 0
 	for v := range emailPathChan {
 		if len(v) > 1 {
@@ -196,21 +187,26 @@ func putWatermark(filePath string) (string, error) {
 	return filePath, nil
 }
 
-func parseToBase64(path string) ([]byte, error) {
+func createEmail(path string, href string, templatePath string) (string, error) {
+	if len(path) <= 1 {
+		return "", errors.New("no img")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	output := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
-	base64.StdEncoding.Encode(output, data)
-	return output, nil
-}
+	base64buff := make([]byte, base64.StdEncoding.EncodedLen(len(data)))
+	base64.StdEncoding.Encode(base64buff, data)
 
-func createEmail(base64buff []byte, href string, templatePath string, id string) (string, error) {
 	templateBuff, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", err
 	}
+
+	idSplit := strings.Split(path, "/")
+	idP := idSplit[len(idSplit)-1]
+	idPSplit := strings.Split(idP, ".")
+	id := idPSplit[0]
 
 	var templateString string = string(templateBuff[:])
 	base64String := string(base64buff[:])
