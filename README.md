@@ -12,7 +12,7 @@ Phishing attack proof of concept in go
 
 ### Wouldn't you click?
 
-<p align="center">
+<p>
 <img src="static/emaileg.png" alt="email example" width="400px"/>
 </p>
 
