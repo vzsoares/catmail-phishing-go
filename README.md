@@ -1,18 +1,25 @@
 # Catmail Phishing Go
 
+Phishing attack proof of concept in go
+
 ![GitHub repo size](https://img.shields.io/github/repo-size/vzsoares/catmail-phishing-go?style=for-the-badge)
 ![GitHub language count](https://img.shields.io/github/languages/count/vzsoares/catmail-phishing-go?style=for-the-badge)
 ![GitHub forks](https://img.shields.io/github/forks/vzsoares/catmail-phishing-go?style=for-the-badge)
 
-![image](static/maingif.gif)
+<p align="center">
+<img src="static/maingif.gif" alt="main gif" width="600px"/>
+</p>
 
-### Phishing attack proof of concept in go
+### Wouldn't you click?
 
-### Would'nt you click?
-
-![image](static/emaileg.png)
+<p align="center">
+<img src="static/emaileg.png" alt="email example" width="400px"/>
+</p>
 
 > email example
+
+</br>
+</br>
 
 ## **🚀 About**
 

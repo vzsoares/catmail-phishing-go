@@ -21,7 +21,7 @@ import (
 )
 
 const CAT_API = "https://api.thecatapi.com/v1/images/search?mime_types=jpg"
-const N = 1000
+const N = 10
 
 type Cache struct {
 	v  map[string]bool
