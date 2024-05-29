@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"io"
 	"main/utils"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -68,14 +69,25 @@ func main() {
 
 	}
 	emailPathChan := utils.ChainOrchestrator(wPathChan, emailPathAction, errChan)
+	//
+	sendEmailAction := func(path string) (string, error) {
+		fmt.Println("sending email")
+		user, err := fakeSendEmail(path)
+		if err == nil {
+			fmt.Printf("phishing sended to: %v \n", user)
+		}
+		return user, err
+	}
+	sendEmailChan := utils.ChainOrchestrator(emailPathChan, sendEmailAction, errChan)
 
-	i := -1
+	i := 0
 	for {
 		select {
-		case _, ok := <-emailPathChan:
-			i++
-			if !ok {
-				fmt.Println("tried to write", N, "images", "and successfuly wrote", i, "images")
+		case _, ok := <-sendEmailChan:
+			if ok {
+				i++
+			} else {
+				fmt.Println("tried ", N, "and successfuly did ", i)
 				return
 			}
 		case err := <-errChan:
@@ -170,19 +182,27 @@ func putWatermark(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	buffer, err := bimg.Read(filePath)
+	mainBuffer, err := bimg.Read(filePath)
+	if err != nil {
+		return "", err
+	}
+	mainSize, err := bimg.Size(mainBuffer)
+	if err != nil {
+		return "", err
+	}
+	watermarkSize, err := bimg.Size(watermarkBuff)
 	if err != nil {
 		return "", err
 	}
 
 	watermark := bimg.WatermarkImage{
-		Left:    0,
-		Top:     0,
+		Left:    (mainSize.Width / 2) - watermarkSize.Width/2,
+		Top:     mainSize.Height - watermarkSize.Height,
 		Opacity: 100,
 		Buf:     watermarkBuff,
 	}
 
-	newImage, err := bimg.NewImage(buffer).WatermarkImage(watermark)
+	newImage, err := bimg.NewImage(mainBuffer).WatermarkImage(watermark)
 	if err != nil {
 		return "", err
 	}
@@ -234,4 +254,10 @@ func createEmail(path string, href string, templatePath string) (string, error) 
 	}
 
 	return outputPath, nil
+}
+
+func fakeSendEmail(emailPath string) (string, error) {
+	rand := rand.Intn(10000)
+	user := fmt.Sprintf("user%v@test.com", rand)
+	return user, nil
 }
