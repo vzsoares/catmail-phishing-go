@@ -15,6 +15,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/h2non/bimg"
 )
@@ -99,7 +100,8 @@ func main() {
 // actions
 
 func getImageUrl(cache *Cache) (string, error) {
-	response, err := http.Get(CAT_API)
+	client := http.Client{Timeout: 5 * time.Second}
+	response, err := client.Get(CAT_API)
 	if err != nil {
 		fmt.Printf("error getting image res %s\n", err)
 		return "", err
