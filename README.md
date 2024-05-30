@@ -32,6 +32,10 @@ The project was suggested by [Pedro Ramos](https://github.com/phramos07) as a wa
 
 ### Overall:
 
+The project idea is to send a cute cat phishing scam email. In order to achieve this we need to download a cat image from the internet, then add a click to claim text, then put that image in a email template and then send it.
+
+### Routines:
+
 <p>
 <img src="static/catmail-phishing-go.jpg" alt="email example"/>
 </p>
