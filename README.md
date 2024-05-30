@@ -18,27 +18,25 @@ Phishing attack proof of concept in go
 
 > email example
 
-</br>
-</br>
+## 🦩 **Why?**
+
+The main reason here is to learn about golang.
+
+The project was suggested by [Pedro Ramos](https://github.com/phramos07) as a way to increase golang skills, focusing in parallelism through routines.
 
 ## **🚀 About**
 
-### lorem:
+### Overall:
 
-lorem
+<p>
+<img src="static/catmail-phishing-go.jpg" alt="email example"/>
+</p>
 
-### lorem:
+### Flow:
 
-lorem
-
-</br>
-</br>
-
-## 🦩 **Why?**
-
-### **lorem**
-
-lorem
+<p>
+<img src="static/catmail-phising-go-flow.jpg" alt="email example"/>
+</p>
 
 </br>
 </br>
